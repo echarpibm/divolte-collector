@@ -16,16 +16,19 @@
 
 buildscript {
     dependencies {
-        classpath group: 'com.github.ben-manes', name: 'gradle-versions-plugin', version: '0.27.0'
+        classpath group: 'com.github.ben-manes', name: 'gradle-versions-plugin', version: '0.51.0'
     }
 }
 
 plugins {
     // Versions 1.6.10 thru 2.0.0 depend on a beta version of slf4j, which we don't resolve.
     // So for now we stay on this version of the plugin.
-    id 'com.github.spotbugs' version '1.6.9'
-    id 'com.github.johnrengelman.shadow' version '5.2.0'
-    id 'pl.allegro.tech.build.axion-release' version '1.12.0'
+    id 'com.intershop.gradle.scmversion' version '7.0.0'
+//     id 'com.github.spotbugs' version '1.6.9' // '6.0.19'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+//    id 'pl.allegro.tech.build.axion-release' version '1.18.0'
+    id 'java'
+    id 'application'
 }
 
 apply plugin: 'groovy'
@@ -35,28 +38,74 @@ apply plugin: 'checkstyle'
 apply plugin: 'jacoco'
 apply plugin: 'application'
 apply plugin: 'com.github.ben-manes.versions'
-apply plugin: 'pl.allegro.tech.build.axion-release'
+// apply plugin: 'pl.allegro.tech.build.axion-release'
 
-scmVersion {
-    tag {
-        prefix = rootProject.name
+// apply plugin: 'com.intershop.gradle.scm'
+
+
+// scmVersion {
+//     tag {
+//         prefix = rootProject.name
+//     }
+//     versionIncrementer 'incrementMinorIfNotOnRelease', [releaseBranchPattern: 'support/.*']
+// }
+
+
+
+scm {
+    // prefixes {
+    //     //default is 'SB'
+    //     stabilizationPrefix = 'SBP'
+
+    //     //default is 'FB'
+    //     featurePrefix = 'FBP'
+
+    //     //default is 'HB'
+    //     hotfixPrefix = 'HBP'
+
+    //     //default is 'BB'
+    //     bugfixPrefix = 'BBP'
+
+    //     //default is Release
+    //     tagPrefix = 'RBP'
+    // }
+
+    version {
+        type = 'threeDigits'
+        initialVersion = '0.10.0'
+        // continuousRelease = true
+        // continuousReleaseBranches = ['test', 'main']
+        // disableSCM = true
     }
-    versionIncrementer 'incrementMinorIfNotOnRelease', [releaseBranchPattern: 'support/.*']
+
+    // changelog {
+    //     targetVersion = '1.0.0'
+    //     changelogFile = new File(project.buildDir, 'changelog/changelogset.asciidoc')
+    // }
 }
 
 defaultTasks 'clean', 'build'
 
 group   = 'io.divolte'
 // Order matters: the version has to be after the scmVersion extension has determined the version.
-project.version = scmVersion.version
+// project.version = scmVersion.version
+version = scm.version.version.replace("-test","")
+// println versionExt
+println version
 
-sourceCompatibility = 1.8
-mainClassName = 'io.divolte.server.Server'
-applicationName = rootProject.name
-applicationDefaultJvmArgs = [
+
+java {
+    sourceCompatibility = 1.8 // JavaVersion.VERSION_18
+}
+// sourceCompatibility = 1.8
+application {
+    mainClass = 'io.divolte.server.Server'
+    applicationName = rootProject.name
+    applicationDefaultJvmArgs = [
         "-XX:+UseG1GC",
         "-Djava.awt.headless=true"
-]
+    ]
+}
 
 repositories {
     mavenLocal()
@@ -67,15 +116,21 @@ dependencies {
     // Define some key versions for components that we use lots of artifacts from.
     // Note: we refer to the Avro documentation in our own documentation.
     def avroVersion = '1.9.1'
-    def hadoopVersion = '3.2.1'
+    def hadoopVersion = '3.4.0'
     def jacksonVersion = '2.10.0'
     def slf4jVersion = '1.7.28'
 
-    compile group: 'io.divolte', name: 'divolte-schema', version: version
-    compile group: 'io.undertow', name: 'undertow-core', version: '2.1.0.Final'
-    compile group: 'com.typesafe', name: 'config', version: '1.4.0'
-    compile group: 'com.google.guava', name: 'guava', version: '29.0-jre'
-    compile group: 'org.apache.avro', name: 'avro', version: avroVersion
+    //     def avroVersion = '1.11.3'
+    // def hadoopVersion = '3.4.0'
+    // def jacksonVersion = '2.17.2'
+    // def slf4jVersion = '2.0.13'
+
+    implementation group: 'io.divolte', name: 'divolte-schema', version: version
+    implementation group: 'io.undertow', name: 'undertow-core', version: '2.1.0.Final' // '2.3.14.Final'
+    implementation group: 'com.typesafe', name: 'config', version: '1.4.0' // '1.4.3'
+    implementation group: 'com.google.guava', name: 'guava', version: '29.0-jre' // '33.1.0-jre'
+    implementation group: 'org.apache.avro', name: 'avro', version: avroVersion
+
 
     /*
      * We package the Avro Tools to provide an easy way to view Avro files
@@ -86,64 +141,94 @@ dependencies {
      * run and have a working tojson command. The other commands weren't fully
      * tested with these deps.
      */
-    runtime (group: 'org.apache.avro', name: 'avro-tools', version: avroVersion, classifier: 'nodeps') {
+    runtimeOnly (group: 'org.apache.avro', name: 'avro-tools', version: avroVersion, classifier: 'nodeps') {
         exclude group: 'org.apache.avro', module: 'avro-mapred'
     }
 
-    compile (group: 'org.apache.hadoop', name:'hadoop-common', version: hadoopVersion) {
+    implementation (group: 'org.apache.hadoop', name:'hadoop-common', version: hadoopVersion) {
         exclude group: 'jline', module: 'jline'
     }
-    compile group: 'org.apache.hadoop', name: 'hadoop-hdfs', version: hadoopVersion
-    compile (group: 'com.google.auth', name: 'google-auth-library-oauth2-http', version: '0.21.1') {
+    implementation group: 'org.apache.hadoop', name: 'hadoop-hdfs', version: hadoopVersion
+    implementation (group: 'com.google.auth', name: 'google-auth-library-oauth2-http', version: '0.21.1' ) { // '1.24.0') {
         exclude group: 'com.google.guava', module: 'guava-jdk5'
     }
-    compile group: 'com.google.cloud', name: 'google-cloud-pubsub', version: '1.101.0'
-    compile (group: 'net.sf.uadetector', name: 'uadetector-core', version: '0.9.22') {
+    // implementation platform('com.google.cloud:libraries-bom:26.43.0')
+    // implementation group: 'com.google.cloud', name: 'google-cloud-core', version: '2.40.0'
+    implementation group: 'com.google.cloud', name: 'google-cloud-pubsub', version: '1.101.0' // '1.131.0'
+    implementation (group: 'net.sf.uadetector', name: 'uadetector-core', version: '0.9.22') {
         exclude group: 'com.google.code.findbugs', module: 'jsr305'
     }
-    compile group: 'net.sf.uadetector', name: 'uadetector-resources', version: '2014.10'
-    compile (group: 'com.maxmind.geoip2', name: 'geoip2', version:'2.12.0') {
+    implementation group: 'net.sf.uadetector', name: 'uadetector-resources', version: '2014.10'
+    implementation (group: 'com.maxmind.geoip2', name: 'geoip2', version:'2.12.0') {
         // We only use DB mode, and Google's HTTP client pulls in Apache HTTP
         // client which conflicts with the version via Hadoop.
         exclude group: 'com.google.http-client', module: 'google-http-client'
     }
-    compile group: 'net.jodah', name: 'failsafe', version: '2.4.0'
+    implementation group: 'net.jodah', name: 'failsafe', version: '2.4.0'
+
+    // implementation group: 'dev.failsafe', name: 'failsafe', version: '3.3.2'
 
     // Compatibility:
     //   - Horton and Cloudera are both on 0.10+ at the time of writing.
     //   - The client from 0.10.2.0 onwards supports brokers from 0.10.0.0 onwards.
     // Note: we refer to versioned producer documentation in our documentation.
-    compile group: 'org.apache.kafka', name:'kafka-clients', version: '2.6.0'
-    compile group: 'com.google.javascript', name:'closure-compiler-unshaded', version:'v20200920'
-    compile group: 'org.codehaus.groovy', name:'groovy', version: '3.0.5', classifier: 'indy'
-    compile group: 'net.sf.jopt-simple', name:'jopt-simple', version: '5.0.4'
-    compile group: 'com.jayway.jsonpath', name: 'json-path', version: '2.4.0'
-    compile group: 'com.fasterxml.jackson.core', name:'jackson-databind', version: jacksonVersion
-    compile group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-jdk8', version: jacksonVersion
-    compile group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-guava', version: jacksonVersion
-    compile group: 'com.fasterxml.jackson.module', name:'jackson-module-parameter-names', version: jacksonVersion
-    compile group: 'com.jasonclawson', name: 'jackson-dataformat-hocon', version: '1.1.0'
+    implementation group: 'org.apache.kafka', name:'kafka-clients', version: '2.6.0'
+    implementation group: 'com.google.javascript', name:'closure-compiler-unshaded', version:'v20200920'
+    implementation group: 'org.apache.groovy', name:'groovy', version: '4.0.22' //, classifier: 'indy'
+    implementation group: 'net.sf.jopt-simple', name:'jopt-simple', version: '5.0.4'
+    implementation group: 'com.jayway.jsonpath', name: 'json-path', version: '2.4.0'
+    implementation group: 'com.fasterxml.jackson.core', name:'jackson-databind', version: jacksonVersion
+    implementation group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-jdk8', version: jacksonVersion
+    implementation group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-guava', version: jacksonVersion
+    implementation group: 'com.fasterxml.jackson.module', name:'jackson-module-parameter-names', version: jacksonVersion
+    implementation group: 'com.jasonclawson', name: 'jackson-dataformat-hocon', version: '1.1.0'
+
+    // implementation group: 'org.apache.kafka', name:'kafka-clients', version: '3.7.1'
+    // implementation group: 'com.google.javascript', name:'closure-compiler-unshaded', version: 'v20200920' // 'v20240317'
+    // implementation group: 'org.apache.groovy', name:'groovy', version: '4.0.22'
+    // implementation group: 'net.sf.jopt-simple', name:'jopt-simple', version: '5.0.4'
+    // implementation group: 'com.jayway.jsonpath', name: 'json-path', version: '2.9.0'
+    // implementation group: 'com.fasterxml.jackson.core', name:'jackson-databind', version: jacksonVersion
+    // implementation group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-jdk8', version: jacksonVersion
+    // implementation group: 'com.fasterxml.jackson.datatype', name:'jackson-datatype-guava', version: jacksonVersion
+    // implementation group: 'com.fasterxml.jackson.module', name:'jackson-module-parameter-names', version: jacksonVersion
+    // implementation group: 'com.jasonclawson', name: 'jackson-dataformat-hocon', version: '1.1.0'
+
+
 
     // Used for configuration validation
-    compile group: 'javax.validation', name:'validation-api', version: '2.0.1.Final'
-    compile group: 'org.hibernate', name:'hibernate-validator', version: '6.1.5.Final'
-    compile group: 'org.glassfish', name:'javax.el', version: '3.0.0'
+    implementation group: 'javax.validation', name:'validation-api', version: '2.0.1.Final'
+    implementation group: 'org.hibernate', name:'hibernate-validator', version: '6.1.5.Final'
+    implementation group: 'org.glassfish', name:'javax.el', version: '3.0.0'
+
+    //     implementation group: 'javax.validation', name:'javax.validation-api', version: '3.1.0'
+    // implementation group: 'org.hibernate.validator', name:'hibernate-validator', version: '8.0.1.Final'
+    // implementation group: 'jakarta.el', name:'jakarta.el-api', version: '6.0.0'
 
     // We use the SLF4J API. At runtime, this is LogBack.
     // (We also force any dependencies that use Log4J to go via SLF4J.)
-    compile group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
-    runtime group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
-    runtime group: 'org.slf4j', name: 'log4j-over-slf4j', version: slf4jVersion
-    runtime group: 'org.slf4j', name: 'jul-to-slf4j', version: slf4jVersion
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
+    runtimeOnly group: 'ch.qos.logback', name: 'logback-classic', version: '1.5.6'
+    runtimeOnly group: 'org.slf4j', name: 'log4j-over-slf4j', version: slf4jVersion
+    runtimeOnly group: 'org.slf4j', name: 'jul-to-slf4j', version: slf4jVersion
 
-    testCompile group: 'junit', name: 'junit', version: '4.13'
-    testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: '1.3'
-    testCompile group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
-    testCompile group: 'com.saucelabs', name:'sauce_junit', version: '2.1.25'
+    // testImplementation group: 'junit', name: 'junit', version: '4.13'
+    // testImplementation group: 'org.hamcrest', name: 'hamcrest-all', version: '1.3'
+    // testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
+    // testImplementation group: 'com.saucelabs', name:'sauce_junit', version: '2.1.25'
 
-    testCompile group: 'org.seleniumhq.selenium', name:'selenium-java', version: '3.141.59'
-    testCompile group: 'com.saucelabs', name:'saucerest', version: '1.0.44'
-    testCompile group: 'com.codeborne', name: 'phantomjsdriver', version: '1.4.4'
+    // //     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.10.3'
+    // // testImplementation group: 'org.hamcrest', name: 'hamcrest', version: '2.2'
+    // // testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.12.0'
+    // // testImplementation group: 'com.saucelabs', name:'sauce_junit', version: '2.1.25'
+
+    // testImplementation group: 'org.seleniumhq.selenium', name:'selenium-java', version: '3.141.59'
+    // testImplementation group: 'com.saucelabs', name:'saucerest', version: '1.0.44'
+    // testImplementation group: 'com.codeborne', name: 'phantomjsdriver', version: '1.4.4'
+
+    // //     testImplementation group: 'org.seleniumhq.selenium', name:'selenium-java', version: '4.22.0'
+    // // testImplementation group: 'com.saucelabs', name:'saucerest', version: '2.5.1'
+    // // testImplementation group: 'com.codeborne', name: 'phantomjsdriver', version: '1.5.0'
 }
 
 configurations {
@@ -171,7 +256,7 @@ configurations {
                     }
                 }
             }
-            force 'io.netty:netty-all:4.1.52.Final'
+            force 'io.netty:netty-all:4.1.111.Final'
         }
     }
 }
@@ -180,7 +265,7 @@ shadowJar {
     mergeServiceFiles()
 }
 
-// This applies to all JavaCompile tasks, not just :compileJava
+// This applies to all Javaimplementation tasks, not just :compileJava
 // (which is the delegate for compileJava {}).
 tasks.withType(JavaCompile) {
     // All our files are UTF-8 encoded.
@@ -197,38 +282,38 @@ tasks.withType(JavaCompile) {
     ]
 }
 
-spotbugs() {
-    excludeFilter = file("config/findbugs/findbugs-excludes.xml")
-    // Versions 3.1.9 thru 3.1.12 depend on a beta version of slf4j, which our component selection rules block.
-    toolVersion = "3.1.8"
-}
+// spotbugs() {
+//     excludeFilter = file("config/findbugs/findbugs-excludes.xml")
+//     // Versions 3.1.9 thru 3.1.12 depend on a beta version of slf4j, which our component selection rules block.
+//     toolVersion = "4.8.6"
+// }
 
 pmd {
-    toolVersion = "5.8.1"
+    toolVersion = "7.3.0"
     ruleSetFiles = files("config/pmd/ruleset.xml")
     // The default set includes 'basic', so empty it. (We include basic via our custom ruleset.)
     ruleSets = []
 }
 
 checkstyle {
-    toolVersion = "8.25"
+    toolVersion = "10.17.0"
 }
 
 jacoco {
-    toolVersion = "0.8.5"
+    toolVersion = "0.8.12"
 }
 
-spotbugsMain.reports {
-    xml.enabled = true
-    html.enabled = false
-}
-spotbugsTest.reports {
-    xml.enabled = true
-    html.enabled = false
-}
+// spotbugsMain.reports {
+//     xml.enabled = true
+//     html.enabled = false
+// }
+// spotbugsTest.reports {
+//     xml.enabled = true
+//     html.enabled = false
+// }
 
 wrapper {
-    gradleVersion = '5.6.3'
+    gradleVersion = '5.6.3' // '8.9.0'
     distributionType = Wrapper.DistributionType.ALL
 }
 
@@ -250,25 +335,25 @@ if (!hasProperty("bindTestServerExternal")) {
     ext.bindTestServerExternal = false
 }
 
-test {
-    maxHeapSize = "1g"
+// test {
+//     maxHeapSize = "1g"
 
-    /* Test results depend on the value of this project property. */
-    systemProperty "io.divolte.test.bindExternal", bindTestServerExternal
+//     /* Test results depend on the value of this project property. */
+//     systemProperty "io.divolte.test.bindExternal", bindTestServerExternal
 
-    /*
-     * Some tests do low-level manipulation with HttpUrlConnection. This
-     * property gives them more freedom.
-     */
-    systemProperty "sun.net.http.allowRestrictedHeaders", "true"
+//     /*
+//      * Some tests do low-level manipulation with HttpUrlConnection. This
+//      * property gives them more freedom.
+//      */
+//     systemProperty "sun.net.http.allowRestrictedHeaders", "true"
 
-    // This is a hack to make gradle realise that the tests depend on the
-    // SELENIUM_DRIVER environment variable, and re-run tests if its value
-    // changes.
-    if (System.getenv().containsKey("SELENIUM_DRIVER")) {
-        systemProperty "io.divolte.test.selenium.driver", System.getenv("SELENIUM_DRIVER")
-    }
-}
+//     // This is a hack to make gradle realise that the tests depend on the
+//     // SELENIUM_DRIVER environment variable, and re-run tests if its value
+//     // changes.
+//     if (System.getenv().containsKey("SELENIUM_DRIVER")) {
+//         systemProperty "io.divolte.test.selenium.driver", System.getenv("SELENIUM_DRIVER")
+//     }
+// }
 
 /*
  * Build distribution .tar.gz or .zip. We don't use the distribution
@@ -277,10 +362,15 @@ test {
  * plugin (or the other way around).
  */
 def distributionLayout = {
-    def baseDir = archiveName - (".${extension}")
+    println archiveBaseName.get()
+    println ".${archiveExtension.get()}"
+    println archiveBaseName.get().toString().indexOf(".${archiveExtension.get()}")
+    def baseDir = archiveBaseName.get() //- (".${archiveExtension}")
+    // def baseDir = archiveBaseName.get().toString().substring(0, archiveBaseName.get().toString().indexOf(".${archiveExtension.get()}"))
+    println baseDir
 
     into("${baseDir}/lib/") {
-        from project.configurations.runtime
+        from project.configurations.all
     }
     into("${baseDir}/lib/") {
         from(project.buildDir.path + "/libs") {
@@ -307,7 +397,7 @@ def distributionLayout = {
 
 task tarball(dependsOn: build, type: Tar) {
     compression = Compression.GZIP
-    extension = "tar.gz"
+    archiveExtension = "tar.gz"
 
     configure distributionLayout
 }
@@ -377,7 +467,7 @@ def sourceFiles = copySpec {
 task tarSource(type: Tar) {
     description = "Tars the source distribution."
     compression = Compression.GZIP
-    extension = "tar.gz"
+    archiveExtension = "tar.gz"
 
     into("divolte-collector-" + version) {
         with sourceFiles
